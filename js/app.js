@@ -2,6 +2,27 @@ const ROWS = 20;
 const COLS = 10;
 
 let board = [];
+// Quy định hình dạng cho các khối Tetris
+const SHAPES = [
+    [[1, 1, 1, 1]],
+    [[1, 1], [1, 1]],
+    [[0, 1, 0], [1, 1, 1]],
+    [[0, 1, 1], [1, 1, 0]],
+    [[1, 1, 0], [0, 1, 1]],
+    [[1, 0, 0], [1, 1, 1]],
+    [[0, 0, 1], [1, 1, 1]]
+];
+// Quy định màu sắc cho các khối Tetris
+const COLORS = [
+    "cyan",
+    "yellow",
+    "purple",
+    "green",
+    "red",
+    "blue",
+    "orange"
+]
+let currentShape = null;
 
 const menu = document.querySelector("main");
 const game = document.getElementById("game");
@@ -18,6 +39,7 @@ document.getElementById("return-button").addEventListener("click", () => {
   game.hidden = true;
   menu.hidden = false;
 });
+// Tạo bảng trò chơi
 function createBoard(){
   for (let row = 0; row < ROWS; row++) {
     const currentRow = [];
@@ -29,23 +51,103 @@ function createBoard(){
   return board;
 }
 
+// Vẽ bảng trò chơi
 function renderBoard() {
+  boardElement.replaceChildren();
+
   boardElement.innerHTML = "";
   for (let row = 0; row < ROWS; row++) {
     for(let col = 0; col < COLS; col++) {
       const cell = document.createElement("div");
       cell.className = "cell";
-      if (board[row][col] !== 0) {
-        cell.classList.add("filled");
-      }
       boardElement.appendChild(cell);
+      const idColor = board[row][col];
+      paintShapeOnBoard(row, col, idColor);
     }
   }
+  paintShape();
 }
+
+// Bắt đầu trò chơi
 function startGame(level) {
   board = createBoard();
+
+  currentShape = getRandomShape();
+
   levelElement.textContent = `Level ${level}`;
+  boardElement.style.gridTemplateColumns =`repeat(${COLS}, 1fr)`;
   menu.hidden = true;
   game.hidden = false;
   renderBoard();
+}
+// Tạo một bản sao của hình dạng
+function copyShape(shape) {
+  const newShape = [];
+
+  for (let row = 0; row < shape.length; row++) {
+    const newRow = [];
+    for (let col = 0; col < shape[row].length; col++) {
+      const value = shape[row][col];
+      newRow.push(value);
+    }
+    newShape.push(newRow);
+  }
+  return newShape;
+}
+function getRandomShape() {
+  const numberOfShapes = SHAPES.length;
+  const randomValue = Math.random();
+  const randomIndex = Math.floor(randomValue * numberOfShapes);
+
+  const shape = copyShape(SHAPES[randomIndex]);
+
+  const idColor = randomIndex + 1;
+  const pieceWidth = shape[0].length;
+  const emptyCols = COLS - pieceWidth;
+  const startCol = Math.floor(emptyCols / 2);
+
+  const startRow = 0;
+
+  return { shape, idColor, startCol, startRow };
+}
+
+function paintShapeOnBoard(row, col, idColor) {
+  if(row < 0 || row >= ROWS || col < 0 || col >= COLS) {
+    return;
+  }
+
+  const indexCell = row * COLS + col;
+
+  const cell = boardElement.children[indexCell];
+  if(!cell) {
+    return;
+  }
+
+  cell.style.backgroundColor = COLORS[idColor - 1];
+
+  if (idColor === 0) {
+    cell.classList.remove("filled");
+  }else {
+    cell.classList.add("filled");
+  }
+}
+
+function paintShape() {
+  if(currentShape === null) {
+    return;
+  }
+
+  const shape = currentShape.shape;
+  const idColor = currentShape.idColor;
+
+  for (let row = 0; row < shape.length; row++) {
+    for (let col = 0; col < shape[row].length; col++) {
+      if (shape[row][col] === 0) {
+        continue;
+      }
+      const boardRow = currentShape.startRow + row;
+      const boardCol = currentShape.startCol + col;
+      paintShapeOnBoard(boardRow, boardCol, idColor);
+      }
+    }
 }

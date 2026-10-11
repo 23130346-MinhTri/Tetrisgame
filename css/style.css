@@ -79,7 +79,7 @@ p{
 }
 .cell.filled{
   background: #38bdf8;
-  border-color: #38bdf8;
+  border-color: #ccc;
 }
 #return-button{
   padding: 12px 20px;
