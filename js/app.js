@@ -23,7 +23,8 @@ const COLORS = [
     "orange"
 ]
 let currentShape = null;
-
+let timer = null;
+let isPlaying = false;
 const menu = document.querySelector("main");
 const game = document.getElementById("game");
 const boardElement = document.getElementById("game-board");
@@ -36,6 +37,9 @@ document.querySelectorAll(".level-button").forEach((button) => {
 });
 
 document.getElementById("return-button").addEventListener("click", () => {
+  isPlaying = false;
+  stopAutoDrop();
+  currentShape = null;
   game.hidden = true;
   menu.hidden = false;
 });
@@ -70,15 +74,19 @@ function renderBoard() {
 
 // Bắt đầu trò chơi
 function startGame(level) {
+  stopAutoDrop();
   board = createBoard();
 
   currentShape = getRandomShape();
+  isPlaying = true;
 
   levelElement.textContent = `Level ${level}`;
   boardElement.style.gridTemplateColumns =`repeat(${COLS}, 1fr)`;
   menu.hidden = true;
   game.hidden = false;
   renderBoard();
+
+  startAutoDrop();
 }
 // Tạo một bản sao của hình dạng
 function copyShape(shape) {
@@ -150,4 +158,87 @@ function paintShape() {
       paintShapeOnBoard(boardRow, boardCol, idColor);
       }
     }
+}
+
+// hàm kiểm tra xem hình dạng có thể di chuyển xuống không
+function canMoveTo(nextRow, nextCol) {
+  if(currentShape === null) {
+    return false;
+  }
+
+  const shape = currentShape.shape;
+  for (let row = 0; row < shape.length; row++) {
+    for (let col = 0; col < shape[row].length; col++) {
+      if (shape[row][col] === 0) {
+        continue;
+      }
+      const boardRow = nextRow + row;
+      const boardCol = nextCol + col;
+
+      if (boardRow < 0 || boardRow >= ROWS || boardCol < 0 || boardCol >= COLS) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+function lockShape() {
+  const shape = currentShape.shape;
+  const idColor = currentShape.idColor;
+
+  for (let row = 0; row < shape.length; row++) {
+    for (let col = 0; col < shape[row].length; col++) {
+      if (shape[row][col] === 0) {
+        continue;
+      }
+      const boardRow = currentShape.startRow + row;
+      const boardCol = currentShape.startCol + col;
+
+      board[boardRow][boardCol] = idColor;
+    }
+  }
+}
+function stopAutoDrop() {
+  if(timer !== null) {
+    clearInterval(timer);
+    timer = null;
+  }
+}
+function moveDown() {
+  if(!isPlaying  || currentShape === null) {
+    return;
+  }
+
+  const nextRow = currentShape.startRow + 1;
+  const nextCol = currentShape.startCol;
+
+  const canMove = canMoveTo(nextRow, nextCol);
+
+  if(canMove) {
+    currentShape.startRow = nextRow;
+  }else {
+    lockShape();
+    currentShape = getRandomShape();
+
+    const canSpawn = canMoveTo(currentShape.startRow, currentShape.startCol);
+
+    if(!canSpawn) {
+      isPlaying = false;
+      stopAutoDrop();
+
+      currentShape = null;
+      title.textContent = "Game Over";
+    }
+  }
+  renderBoard();
+}
+
+function startAutoDrop() {
+  if(timer !== null) {
+    return;
+  }
+  stopAutoDrop();
+  timer = setInterval(() => {
+    moveDown();
+  }, 600);
 }
