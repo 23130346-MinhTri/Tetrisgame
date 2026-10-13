@@ -161,21 +161,25 @@ function paintShape() {
 }
 
 // hàm kiểm tra xem hình dạng có thể di chuyển xuống không
-function canMoveTo(nextRow, nextCol) {
+function canMoveTo() {
   if(currentShape === null) {
     return false;
   }
 
   const shape = currentShape.shape;
+  const nextRow = currentShape.startRow + 1;
   for (let row = 0; row < shape.length; row++) {
     for (let col = 0; col < shape[row].length; col++) {
       if (shape[row][col] === 0) {
         continue;
       }
       const boardRow = nextRow + row;
-      const boardCol = nextCol + col;
+      const boardCol = currentShape.startCol + col;
 
       if (boardRow < 0 || boardRow >= ROWS || boardCol < 0 || boardCol >= COLS) {
+        return false;
+      }
+      if (board[boardRow][boardCol] !== 0) {
         return false;
       }
     }
@@ -183,6 +187,9 @@ function canMoveTo(nextRow, nextCol) {
   return true;
 }
 function lockShape() {
+  if(currentShape === null) {
+    return;
+  }
   const shape = currentShape.shape;
   const idColor = currentShape.idColor;
 
@@ -212,7 +219,7 @@ function moveDown() {
   const nextRow = currentShape.startRow + 1;
   const nextCol = currentShape.startCol;
 
-  const canMove = canMoveTo(nextRow, nextCol);
+  const canMove = canMoveTo();
 
   if(canMove) {
     currentShape.startRow = nextRow;
@@ -220,9 +227,7 @@ function moveDown() {
     lockShape();
     currentShape = getRandomShape();
 
-    const canSpawn = canMoveTo(currentShape.startRow, currentShape.startCol);
-
-    if(!canSpawn) {
+    if(!canMoveTo()) {
       isPlaying = false;
       stopAutoDrop();
 
