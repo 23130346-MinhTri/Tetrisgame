@@ -123,6 +123,7 @@ function startGame(level) {
   stopAutoDrop();
   board = createBoard();
 
+
   currentShape = getRandomShape();
   isPlaying = true;
 
@@ -279,8 +280,8 @@ function moveDown() {
 }
 function finishShape() {
   lockShape();
+  const rowsCleared = clearFullRows();
   currentShape = getRandomShape();
-  
   if (!canMoveTo(currentShape.startRow, currentShape.startCol, currentShape.shape)) {
     isPlaying = false;
     stopAutoDrop();
@@ -352,4 +353,32 @@ function hardDrop() {
   }
   finishShape();
   renderBoard();
+}
+function clearFullRows() {
+  let rowsCleared = 0;
+  let row = ROWS - 1;
+  while(row >= 0){
+    let isFull = true;
+
+    for(let col = 0; col < COLS; col++) {
+      if(board[row][col] === 0) {
+        isFull = false;
+        break;
+      }
+    }
+    if(isFull) {
+      for(let r = row; r > 0; r--) {
+        for(let col = 0; col < COLS; col++) {
+          board[r][col] = board[r - 1][col];
+        }
+      }
+      for(let col = 0; col < COLS; col++) {
+        board[0][col] = 0;
+      }
+      rowsCleared++;
+    }else {
+      row--;
+    }
+  }
+  return rowsCleared;
 }
