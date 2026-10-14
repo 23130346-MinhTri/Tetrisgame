@@ -21,9 +21,22 @@
     </main>
     <section id="game" hidden>
       <h2>Game Area <span id="current-level">Level 1</span></h2>
-      <div id="game-board" aria-label="Bảng trò chơi"></div>
-      <button id="return-button">Chọn lại level</button>
+      <div class="game-layout">
+        <div id="game-board" aria-label="Bảng trò chơi"></div>
+        <aside class="game-info">
+          <div class="info">
+            <h3>MỤC TIÊU</h3>
+            <p id="goal-text">Xóa 5 hàng để thắng</p>
+            <p id="goal-progress" aria-live="polite">0 / 5 hàng</p>
+          </div>
 
+          <div class="info">
+            <h3>KHỐI TIẾP THEO</h3>
+            <div id="next-shape"></div>
+          </div>
+        </aside>
+      </div>
+      <button id="return-button">Chọn lại level</button>
     </section>
   </body>
   <script src="./js/app.js"></script>

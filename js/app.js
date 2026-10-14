@@ -33,12 +33,20 @@ const SHAPES = [
 // Quy định màu sắc cho các khối Tetris
 const COLORS = ["cyan", "yellow", "purple", "green", "red", "blue", "orange"];
 let currentShape = null;
+let nextBlock = null;
 let timer = null;
 let isPlaying = false;
 const menu = document.querySelector("main");
 const game = document.getElementById("game");
 const boardElement = document.getElementById("game-board");
 const levelElement = document.getElementById("current-level");
+
+let currentLevel = 1;
+let targetLines = 7;
+let totalClearLines = 0;
+const goalText = document.getElementById("goal-text");
+const progressText = document.getElementById("goal-progress");
+const nextShape = document.getElementById("next-shape");
 
 document.querySelectorAll(".level-button").forEach((button) => {
   button.addEventListener("click", () => {
@@ -121,19 +129,39 @@ function renderBoard() {
 // Bắt đầu trò chơi
 function startGame(level) {
   stopAutoDrop();
+  currentLevel = level;
+  targetLines = 7;
+  totalClearLines = 0;
   board = createBoard();
 
-
   currentShape = getRandomShape();
+  nextBlock = getRandomShape();
   isPlaying = true;
 
   levelElement.textContent = `Level ${level}`;
   boardElement.style.gridTemplateColumns = `repeat(${COLS}, 1fr)`;
   menu.hidden = true;
   game.hidden = false;
+  updateGoalDisply();
+  renderNextShape();
   renderBoard();
 
   startAutoDrop();
+}
+function endGame(isWin){
+  isPlaying = false;
+  stopAutoDrop();
+
+  currentShape= null;
+  nextBlock= null;
+
+  if(isWin){
+    levelElement.textContent = "CHIẾN THẮNG!";
+  }else{
+    levelElement.textContent ="GAME OVER";
+  }
+  renderNextShape();
+  renderBoard();
 }
 // Tạo một bản sao của hình dạng
 function copyShape(shape) {
@@ -207,7 +235,7 @@ function paintShape() {
   }
 }
 
-// hàm kiểm tra xem hình dạng có thể di chuyển xuống không
+// hàm kiểm tra xem hình dạng có thể di chuyển xuống không và có chạm 2 biên
 function canMoveTo(nextRow, nextCol, shape) {
   if (currentShape === null) {
     return false;
@@ -281,13 +309,22 @@ function moveDown() {
 function finishShape() {
   lockShape();
   const rowsCleared = clearFullRows();
-  currentShape = getRandomShape();
-  if (!canMoveTo(currentShape.startRow, currentShape.startCol, currentShape.shape)) {
-    isPlaying = false;
-    stopAutoDrop();
-    currentShape = null;
-    levelElement.textContent = "Game Over";
+  totalClearLines += rowsCleared;
+
+  updateGoalDisply();
+
+  if(totalClearLines >= targetLines){
+    endGame(true);
+    return;
   }
+  currentShape = nextBlock;
+
+  if (!canMoveTo(currentShape.startRow, currentShape.startCol, currentShape.shape)) {
+    endGame(false);
+    return;
+  }
+  nextBlock = getRandomShape();
+  renderNextShape();
 }
 function startAutoDrop() {
   if (timer !== null) {
@@ -381,4 +418,33 @@ function clearFullRows() {
     }
   }
   return rowsCleared;
+}
+function updateGoalDisply(){
+  goalText.textContent = `Xóa ${targetLines} hàng để thắng`;
+
+  progressText.textContent = `${totalClearLines} / ${targetLines} hàng`;
+}
+// Tạo khối rơi tiếp theo
+function renderNextShape(){
+  nextShape.replaceChildren();
+
+  if(nextBlock === null ) return;
+
+  const shape = nextBlock.shape;
+  const color = COLORS[nextBlock.idColor - 1];
+  const columns = shape[0].length;
+
+  nextShape.style.gridTemplateColumns = `repeat(${columns}, 30px)`;
+  for(let row = 0; row < shape.length; row++){
+    for(let col = 0; col < shape[row].length; col++){
+      const cell = document.createElement("div");
+      cell.className = "preview-cell";
+
+      if(shape[row][col] !== 0){
+        cell.style.backgroundColor = color;
+        cell.classList.add("filled");
+      }
+      nextShape.appendChild(cell);
+    }
+  }
 }
