@@ -149,3 +149,19 @@ p{
   font-size: 16px;
   cursor: pointer;
 }
+.cell.obstacle {
+  background: #64748b !important;
+  border: 2px solid #cbd5e1;
+}
+.cell.time-bonus{
+  outline: 2px solid #4ade80;
+  outline-offset: -2px;
+  color: #4ade80;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: bold;
+}
+#time{
+  color: #facc15;
+}
