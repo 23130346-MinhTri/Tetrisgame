@@ -64,6 +64,20 @@ const LEVEL_CONFIGS = {
     movingObstacle: true,
     timeBonus: true,
   },
+  3: {
+    targetLines: 5,
+    targetScore: 1500,
+    timeLimit: null,
+    dropDelay: 400,
+    movingObstacle: false,
+    timeBonus: false,
+
+    bomb: {
+      chance: 0.2,
+      radius: 1,
+      pointPerCell: 20,
+    },
+  },
 };
 function getLevelConfig() {
   return LEVEL_CONFIGS[currentLevel];
@@ -217,7 +231,7 @@ function endGame(isWin) {
   nextBlock = null;
 
   levelElement.textContent = isWin ? "CHIẾN THẮNG!" : "GAME OVER";
-  updateGameDisplay()
+  updateGameDisplay();
   renderNextShape();
   renderBoard();
 }
@@ -236,6 +250,21 @@ function copyShape(shape) {
   return newShape;
 }
 function getRandomShape() {
+  const config = getLevelConfig();
+  if (config.bomb) {
+    const randomValue = Math.random();
+    if (randomValue < config.bomb.chance) {
+      return {
+        type: "bomb",
+        shape: [[1]],
+        idColor: 7,
+        startRow: 0,
+        startCol: Math.floor((COLS - 1) / 2),
+        blastRadius: config.bomb.radius,
+        pointPerCell: config.bomb.pointPerCell,
+      };
+    }
+  }
   const numberOfShapes = SHAPES.length;
   const randomValue = Math.random();
   const randomIndex = Math.floor(randomValue * numberOfShapes);
@@ -245,11 +274,11 @@ function getRandomShape() {
   const idColor = randomIndex + 1;
   const pieceWidth = shape[0].length;
   const emptyCols = COLS - pieceWidth;
-  const startCol = Math.floor(emptyCols / 2);
+  const startCol = Math.floor((COLS - emptyCols) / 2);
 
   const startRow = 0;
 
-  return { shape, idColor, startCol, startRow };
+  return { type: "normal", shape, idColor, startCol, startRow };
 }
 
 function paintShapeOnBoard(row, col, idColor) {
@@ -289,6 +318,15 @@ function paintShape() {
       const boardRow = currentShape.startRow + row;
       const boardCol = currentShape.startCol + col;
       paintShapeOnBoard(boardRow, boardCol, idColor);
+
+      if (currentShape.type === "bomb") {
+        const index = boardRow * COLS + boardCol;
+        const cell = boardElement.children[index];
+        if (cell) {
+          cell.classList.add("bomb-cell");
+          cell.textContent = "💣";
+        }
+      }
     }
   }
 }
@@ -369,9 +407,16 @@ function finishShape() {
   if (checkTimeExpired()) return;
 
   collectTimeBonus();
-  lockShape();
+
+  if(currentShape.type === "bomb"){
+    const result = isBomb(currentShape);
+    addBonusPoint(result.bonusPoint);
+  }else{
+    lockShape();
+  }
   const rowsCleared = clearFullRows();
   clearScore(rowsCleared);
+  resolveAfterClear(rowsCleared);
   updateGameDisplay();
 
   if (hasGoals()) {
@@ -584,6 +629,10 @@ function renderNextShape() {
         cell.style.backgroundColor = color;
         cell.classList.add("filled");
       }
+      if (nextBlock.type === "bomb" && shape[row][col] !== 0) {
+        cell.classList.add("bomb-cell");
+        cell.textContent = "💣";
+      }
       nextShape.appendChild(cell);
     }
   }
@@ -665,8 +714,8 @@ function spawnTimeBonus(now) {
 }
 function collectTimeBonus() {
   const config = getLevelConfig();
- if (!config.timeBonus || config.timeLimit === null ||
-    timeBonus === null) return;
+  if (!config.timeBonus || config.timeLimit === null || timeBonus === null)
+    return;
 
   const now = performance.now();
 
@@ -674,8 +723,8 @@ function collectTimeBonus() {
     timeBonus = null;
     return;
   }
-  
-  if(isCurrentShape(timeBonus.row, timeBonus.col)){
+
+  if (isCurrentShape(timeBonus.row, timeBonus.col)) {
     deadline = Math.min(deadline + 5000, now + 120000);
     timeBonus = null;
     updateGameDisplay();
@@ -748,4 +797,37 @@ function startTimer() {
     updateGameDisplay();
     if (boardChanged) renderBoard();
   }, 250);
+}
+
+function isBomb(bomb) {
+  const centerRow = bomb.startRow;
+  const centerCol = bomb.startCol;
+
+  const radius = bomb.blastRadius;
+
+  const startRow = Math.max(0, centerRow - radius);
+  const endRow = Math.min(ROWS - 1, centerRow + radius);
+
+  const startCol = Math.max(0, centerCol - radius);
+  const endCol = Math.min(COLS - 1, centerCol + radius);
+
+  let destroyed = 0;
+  for (let row = startRow; row <= endRow; row++) {
+    for (let col = startCol; col <= endCol; col++) {
+      if (board[row][col] === 0) {
+        continue;
+      }
+
+      board[row][col] = 0;
+      destroyed++;
+    }
+  }
+  const bonusPoint = destroyed * bomb.pointPerCell;
+  return {
+    destroyed: destroyed,
+    bonusPoint: bonusPoint
+  }
+}
+function addBonusPoint(points){
+  scoreAt += points;
 }
