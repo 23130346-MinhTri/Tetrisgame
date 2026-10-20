@@ -172,3 +172,14 @@ p{
   font-size: 20px;
   line-height: 1;
 }
+.cell.garbage-cell {
+  border-color: #94a3b8;
+
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0,
+    transparent 6px,
+    rgba(0, 0, 0, 0.2) 6px,
+    rgba(0, 0, 0, 0.2) 9px
+  );
+}

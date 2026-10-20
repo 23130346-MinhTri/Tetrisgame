@@ -31,7 +31,7 @@ const SHAPES = [
   ],
 ];
 // Quy định màu sắc cho các khối Tetris
-const COLORS = ["cyan", "yellow", "purple", "green", "red", "blue", "orange"];
+const COLORS = ["cyan", "yellow", "purple", "green", "red", "blue", "orange","#64748b"];
 let currentShape = null;
 let nextBlock = null;
 let timer = null;
@@ -78,7 +78,50 @@ const LEVEL_CONFIGS = {
       pointPerCell: 20,
     },
   },
+  4: {
+    targetLines: 10,
+    targetScore: 2000,
+    timeLimit: null,
+    dropDelay: 400,
+    movingObstacle: false,
+    timeBonus: false,
+
+    garbage: {
+      intervalMs: 8000,
+    },
+  },
+  5: {
+    targetLines: 12,
+    targetScore: 3000,
+    timeLimit: 120,
+    dropDelay: 500,
+    movingObstacle: false,
+    timeBonus: false,
+    bomb: {
+      chance: 0.15,
+      radius: 1,
+      pointPerCell: 20
+    },
+    garbage: {
+      intervalMs: 12000
+    },
+    difficulty: {
+      everyMs: 20000,
+      dropDecreaseMs: 70,
+      minDropDelay: 150,
+
+      garbageDecreaseMs: 1200,
+      minGarbageInterval: 6000
+    }
+  }
 };
+let activeDropDelay = 400;
+let activeGarbageInterval = 0;
+const GARBAGE_ID = 8;
+let nextGarbageAt = 0;
+let gameStartedAt = 0;
+let difficultyStage = 0;
+
 function getLevelConfig() {
   return LEVEL_CONFIGS[currentLevel];
 }
@@ -197,6 +240,13 @@ function startGame(level) {
   nextBlock = getRandomShape();
 
   const now = performance.now();
+  gameStartedAt = now;
+  difficultyStage = 0;
+
+  activeDropDelay = config.dropDelay;
+  activeGarbageInterval = config.garbage ? config.garbage.intervalMs : 0;
+
+  nextGarbageAt = config.garbage ? now + config.activeGarbageInterval : 0;
   deadline = config.timeLimit === null ? 0 : now + config.timeLimit * 1000;
 
   if (config.movingObstacle) {
@@ -300,6 +350,11 @@ function paintShapeOnBoard(row, col, idColor) {
   } else {
     cell.classList.add("filled");
   }
+  if (idColor === GARBAGE_ID) {
+  cell.classList.add("garbage-cell");
+} else {
+  cell.classList.remove("garbage-cell");
+}
 }
 
 function paintShape() {
@@ -380,6 +435,16 @@ function lockShape() {
     }
   }
 }
+function startAutoDrop() {
+  if (timer !== null) {
+    return;
+  }
+  stopAutoDrop();
+  const config = getLevelConfig();
+  timer = setInterval(function () {
+    moveDown();
+  }, activeDropDelay);
+}
 function stopAutoDrop() {
   if (timer !== null) {
     clearInterval(timer);
@@ -408,10 +473,10 @@ function finishShape() {
 
   collectTimeBonus();
 
-  if(currentShape.type === "bomb"){
+  if (currentShape.type === "bomb") {
     const result = isBomb(currentShape);
     addBonusPoint(result.bonusPoint);
-  }else{
+  } else {
     lockShape();
   }
   const rowsCleared = clearFullRows();
@@ -456,16 +521,7 @@ function resolveAfterClear(rowsCleared) {
     obstacle = null;
   }
 }
-function startAutoDrop() {
-  if (timer !== null) {
-    return;
-  }
-  stopAutoDrop();
-  const config = getLevelConfig();
-  timer = setInterval(function () {
-    moveDown();
-  }, config.dropDelay);
-}
+
 function moveLeftOrRight(direction) {
   if (!isPlaying || currentShape === null) {
     return;
@@ -773,13 +829,14 @@ function startTimer() {
   const config = getLevelConfig();
 
   const needsTimer =
-    config.timeLimit !== null || config.movingObstacle || config.timeBonus;
+    config.timeLimit !== null || config.movingObstacle || config.timeBonus || Boolean(config.garbage) || Boolean(config.difficulty);
   if (!needsTimer) return;
   challengeTimer = setInterval(function () {
     if (!isPlaying || checkTimeExpired()) return;
 
     const now = performance.now();
     let boardChanged = false;
+    updateDifficult(now);
     if (timeBonus !== null && now >= timeBonus.expiresAt) {
       timeBonus = null;
       boardChanged = true;
@@ -791,8 +848,15 @@ function startTimer() {
     }
     if (config.timeBonus && now >= nextAttemptAt) {
       spawnTimeBonus(now);
-      nextAttemptAt = now + 1000;
+      nextAttemptAt = now + 10000;
       boardChanged = true;
+    }
+    if (config.garbage && now >= nextGarbageAt) {
+      nextGarbageAt = now + config.activeGarbageInterval;
+      addGarbageRow();
+      if (!isPlaying) {
+        return;
+      }
     }
     updateGameDisplay();
     if (boardChanged) renderBoard();
@@ -825,9 +889,84 @@ function isBomb(bomb) {
   const bonusPoint = destroyed * bomb.pointPerCell;
   return {
     destroyed: destroyed,
-    bonusPoint: bonusPoint
-  }
+    bonusPoint: bonusPoint,
+  };
 }
-function addBonusPoint(points){
+function addBonusPoint(points) {
   scoreAt += points;
+}
+
+//Tạo hàng phá
+function createGarbageRow(){
+  const garbageRow = [];
+  const holeCol = Math.floor(Math.random() * COLS);
+  for(let col = 0; col < COLS; col++){
+    if(col === holeCol){
+      garbageRow.push(0);
+    }else{
+      garbageRow.push(GARBAGE_ID);
+    }
+  }
+  return garbageRow;
+}
+function hasBlocksInTopRow(){
+  for (let col = 0; col < COLS; col++) {
+    if (board[0][col] !== 0) {
+      return true;
+    }
+  }
+  return false;
+}
+function addGarbageRow(){
+  if (!isPlaying || currentShape === null) return;
+  if(checkTimeExpired()) return;
+  if (hasBlocksInTopRow()) {
+    endGame(false);
+    levelElement.textContent = "GAME OVER — RÁC ĐẨY TRÀN BẢNG";
+    return;
+  }
+  const pushedRow = currentShape.startRow - 1;
+
+  if(pushedRow < 0){
+    endGame(false);
+    levelElement.textContent = "GAME OVER — KHỐI BỊ ĐẨY QUA ĐỈNH";
+    return;
+  }
+
+   for (let row = 0; row < ROWS - 1; row++) {
+    for (let col = 0; col < COLS; col++) {
+      board[row][col] = board[row + 1][col];
+    }
+  }
+  board[ROWS - 1] = createGarbageRow();
+  currentShape.startRow = pushedRow;
+
+  const isValidPosition = canMoveTo(currentShape.startRow, currentShape.startCol, currentShape.shape);
+  if(!isValidPosition){
+    endGame(false);
+    levelElement.textContent = "GAME OVER - KHỐI BỊ CHẶN";
+    return;
+  }
+  renderBoard();
+}
+function updateDifficult(now){
+  const config = getLevelConfig();
+  const difficulty = config.difficulty;
+  if(!difficulty) return;
+
+  const elapsedTime = now - gameStartedAt;
+
+  const newStage = Math.floor(elapsedTime / difficulty.everyMs);
+  if(newStage === difficultyStage) return;
+  difficultyStage = newStage;
+  const newDropDelay = Math.max(difficulty.minDropDelay, config.dropDelay - difficultyStage * difficulty.dropDecreaseMs);
+  if(newDropDelay !== activeDropDelay){
+    activeDropDelay = newDropDelay;
+    stopAutoDrop();
+    startAutoDrop();
+  }
+  if(config.garbage){
+    activeGarbageInterval = Math.max(difficulty.minGarbageInterval, config.garbage.intervalMs - difficultyStage * difficulty.garbageDecreaseMs);
+    nextGarbageAt = Math.min(nextGarbageAt, now + activeGarbageInterval);
+  }
 }
