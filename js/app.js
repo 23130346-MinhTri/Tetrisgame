@@ -31,7 +31,7 @@ const SHAPES = [
   ],
 ];
 // Quy định màu sắc cho các khối Tetris
-const COLORS = ["cyan", "yellow", "purple", "green", "red", "blue", "orange","#64748b"];
+const COLORS = ["cyan","yellow","purple", "green", "red","blue","orange","#64748b","#a5f3fc"];
 let currentShape = null;
 let nextBlock = null;
 let timer = null;
@@ -100,10 +100,10 @@ const LEVEL_CONFIGS = {
     bomb: {
       chance: 0.15,
       radius: 1,
-      pointPerCell: 20
+      pointPerCell: 20,
     },
     garbage: {
-      intervalMs: 12000
+      intervalMs: 12000,
     },
     difficulty: {
       everyMs: 20000,
@@ -111,13 +111,20 @@ const LEVEL_CONFIGS = {
       minDropDelay: 150,
 
       garbageDecreaseMs: 1200,
-      minGarbageInterval: 6000
-    }
-  }
+      minGarbageInterval: 6000,
+    },
+    ice: {
+      chancePerGarbageRow: 0.5,
+      maxCellsPerRow: 2,
+      breakBonus: 10,
+    },
+  },
 };
+//tốc độ rơi khối
 let activeDropDelay = 400;
 let activeGarbageInterval = 0;
 const GARBAGE_ID = 8;
+let ICE_ID = 9;
 let nextGarbageAt = 0;
 let gameStartedAt = 0;
 let difficultyStage = 0;
@@ -144,7 +151,7 @@ document.querySelectorAll(".level-button").forEach((button) => {
     startGame(Number(button.dataset.level));
   });
 });
-
+// Quay lại menu
 document.getElementById("return-button").addEventListener("click", () => {
   isPlaying = false;
   stopAutoDrop();
@@ -156,6 +163,7 @@ document.getElementById("return-button").addEventListener("click", () => {
   game.hidden = true;
   menu.hidden = false;
 });
+//Xử lý phím
 document.addEventListener("keydown", (event) => {
   if (!isPlaying || currentShape === null) {
     return;
@@ -225,7 +233,6 @@ function renderBoard() {
 // Bắt đầu trò chơi
 function startGame(level) {
   const config = LEVEL_CONFIGS[level];
-
   stopAutoDrop();
   stopTimer();
   currentLevel = level;
@@ -246,15 +253,12 @@ function startGame(level) {
   activeDropDelay = config.dropDelay;
   activeGarbageInterval = config.garbage ? config.garbage.intervalMs : 0;
 
-  nextGarbageAt = config.garbage ? now + config.activeGarbageInterval : 0;
+  nextGarbageAt = config.garbage ? now + activeGarbageInterval : 0;
   deadline = config.timeLimit === null ? 0 : now + config.timeLimit * 1000;
 
   if (config.movingObstacle) {
     obstacle = {
-      row: ROWS - 9,
-      col: 0,
-      width: 2,
-      direction: 1,
+      row: ROWS - 9, col: 0, width: 2, direction: 1,
     };
   }
   nextMoveAt = now + 1000;
@@ -288,7 +292,6 @@ function endGame(isWin) {
 // Tạo một bản sao của hình dạng
 function copyShape(shape) {
   const newShape = [];
-
   for (let row = 0; row < shape.length; row++) {
     const newRow = [];
     for (let col = 0; col < shape[row].length; col++) {
@@ -299,16 +302,15 @@ function copyShape(shape) {
   }
   return newShape;
 }
+//Tạo khối rơi ngẫu nhiên
 function getRandomShape() {
   const config = getLevelConfig();
   if (config.bomb) {
     const randomValue = Math.random();
     if (randomValue < config.bomb.chance) {
       return {
-        type: "bomb",
-        shape: [[1]],
-        idColor: 7,
-        startRow: 0,
+        type: "bomb", shape: [[1]],
+        idColor: 7, startRow: 0,
         startCol: Math.floor((COLS - 1) / 2),
         blastRadius: config.bomb.radius,
         pointPerCell: config.bomb.pointPerCell,
@@ -327,44 +329,40 @@ function getRandomShape() {
   const startCol = Math.floor((COLS - emptyCols) / 2);
 
   const startRow = 0;
-
   return { type: "normal", shape, idColor, startCol, startRow };
 }
-
+//Vẽ hình khối lên màn chơi
 function paintShapeOnBoard(row, col, idColor) {
   if (row < 0 || row >= ROWS || col < 0 || col >= COLS) {
     return;
   }
-
   const indexCell = row * COLS + col;
-
   const cell = boardElement.children[indexCell];
   if (!cell) {
     return;
   }
-
   cell.style.backgroundColor = COLORS[idColor - 1];
-
   if (idColor === 0) {
     cell.classList.remove("filled");
   } else {
     cell.classList.add("filled");
   }
   if (idColor === GARBAGE_ID) {
-  cell.classList.add("garbage-cell");
-} else {
-  cell.classList.remove("garbage-cell");
+    cell.classList.add("garbage-cell");
+  } else {
+    cell.classList.remove("garbage-cell");
+  }
+  if (idColor === ICE_ID) {
+    cell.classList.add("ice-cell");
+    cell.textContent = "❄";
+  }
 }
-}
-
 function paintShape() {
   if (currentShape === null) {
     return;
   }
-
   const shape = currentShape.shape;
   const idColor = currentShape.idColor;
-
   for (let row = 0; row < shape.length; row++) {
     for (let col = 0; col < shape[row].length; col++) {
       if (shape[row][col] === 0) {
@@ -391,7 +389,6 @@ function canMoveTo(nextRow, nextCol, shape) {
   if (currentShape === null) {
     return false;
   }
-
   for (let row = 0; row < shape.length; row++) {
     for (let col = 0; col < shape[row].length; col++) {
       if (shape[row][col] === 0) {
@@ -399,27 +396,16 @@ function canMoveTo(nextRow, nextCol, shape) {
       }
       const boardRow = nextRow + row;
       const boardCol = nextCol + col;
-
-      if (
-        boardRow < 0 ||
-        boardRow >= ROWS ||
-        boardCol < 0 ||
-        boardCol >= COLS
-      ) {
-        return false;
-      }
-      if (board[boardRow][boardCol] !== 0) {
-        return false;
-      }
+      if ( boardRow < 0 || boardRow >= ROWS || boardCol < 0 || boardCol >= COLS)  return false;
+      if (board[boardRow][boardCol] !== 0)  return false;
       if (isObstacleCell(boardRow, boardCol)) return false;
     }
   }
   return true;
 }
+// cô định shape vào bảng
 function lockShape() {
-  if (currentShape === null) {
-    return;
-  }
+  if (currentShape === null) return;
   const shape = currentShape.shape;
   const idColor = currentShape.idColor;
 
@@ -430,11 +416,11 @@ function lockShape() {
       }
       const boardRow = currentShape.startRow + row;
       const boardCol = currentShape.startCol + col;
-
       board[boardRow][boardCol] = idColor;
     }
   }
 }
+//tự động rơi khối
 function startAutoDrop() {
   if (timer !== null) {
     return;
@@ -458,9 +444,7 @@ function moveDown() {
   if (checkTimeExpired()) return;
   const nextRow = currentShape.startRow + 1;
   const nextCol = currentShape.startCol;
-
   const canMove = canMoveTo(nextRow, nextCol, currentShape.shape);
-
   if (canMove) {
     currentShape.startRow = nextRow;
   } else {
@@ -470,9 +454,7 @@ function moveDown() {
 }
 function finishShape() {
   if (checkTimeExpired()) return;
-
   collectTimeBonus();
-
   if (currentShape.type === "bomb") {
     const result = isBomb(currentShape);
     addBonusPoint(result.bonusPoint);
@@ -488,9 +470,7 @@ function finishShape() {
     endGame(true);
     return;
   }
-
   currentShape = nextBlock;
-
   if (
     !canMoveTo(currentShape.startRow, currentShape.startCol, currentShape.shape)
   ) {
@@ -502,9 +482,7 @@ function finishShape() {
 }
 function resolveAfterClear(rowsCleared) {
   if (rowsCleared === 0 || obstacle === null) return;
-
   timeBonus = null;
-
   for (let col = 0; col <= COLS - obstacle.width; col++) {
     let isEmpty = true;
 
@@ -521,7 +499,6 @@ function resolveAfterClear(rowsCleared) {
     obstacle = null;
   }
 }
-
 function moveLeftOrRight(direction) {
   if (!isPlaying || currentShape === null) {
     return;
@@ -573,7 +550,6 @@ function hardDrop() {
     return;
   }
   if (checkTimeExpired()) return;
-
   while (
     canMoveTo(
       currentShape.startRow + 1,
@@ -595,7 +571,10 @@ function clearScore(rowsCleared) {
   scoreAt += points;
 }
 function clearFullRows() {
+  const config = getLevelConfig();
   let rowsCleared = 0;
+  let totalBrokenIce = 0;
+
   let row = ROWS - 1;
   while (row >= 0) {
     let isFull = true;
@@ -605,6 +584,12 @@ function clearFullRows() {
         isFull = false;
         break;
       }
+    }
+    const brokenIce = breakIceInRow(row);
+    if (brokenIce > 0) {
+      totalBrokenIce += brokenIce;
+      row--;
+      continue;
     }
     if (isFull) {
       for (let r = row; r > 0; r--) {
@@ -618,6 +603,10 @@ function clearFullRows() {
       rowsCleared++;
     } else {
       row--;
+    }
+    if (config.ice && totalBrokenIce > 0) {
+      const bonusPoints = totalBrokenIce * config.ice.breakBonus;
+      addBonusPoint(bonusPoints);
     }
   }
   return rowsCleared;
@@ -693,7 +682,6 @@ function renderNextShape() {
     }
   }
 }
-
 function isCurrentShape(boardRow, boardCol) {
   if (currentShape === null) return false;
 
@@ -711,9 +699,7 @@ function isObstacleCell(row, col) {
   if (obstacle === null) return false;
 
   return (
-    row === obstacle.row &&
-    col >= obstacle.col &&
-    col < obstacle.col + obstacle.width
+    row === obstacle.row && col >= obstacle.col && col < obstacle.col + obstacle.width
   );
 }
 function canPlaceObstacle(nextCol) {
@@ -803,7 +789,6 @@ function renderSpecObs() {
     cell.textContent = "+5s";
   }
 }
-
 function stopTimer() {
   if (challengeTimer != null) {
     clearInterval(challengeTimer);
@@ -829,7 +814,11 @@ function startTimer() {
   const config = getLevelConfig();
 
   const needsTimer =
-    config.timeLimit !== null || config.movingObstacle || config.timeBonus || Boolean(config.garbage) || Boolean(config.difficulty);
+    config.timeLimit !== null ||
+    config.movingObstacle ||
+    config.timeBonus ||
+    Boolean(config.garbage) ||
+    Boolean(config.difficulty);
   if (!needsTimer) return;
   challengeTimer = setInterval(function () {
     if (!isPlaying || checkTimeExpired()) return;
@@ -852,7 +841,7 @@ function startTimer() {
       boardChanged = true;
     }
     if (config.garbage && now >= nextGarbageAt) {
-      nextGarbageAt = now + config.activeGarbageInterval;
+      nextGarbageAt = now + activeGarbageInterval;
       addGarbageRow();
       if (!isPlaying) {
         return;
@@ -895,21 +884,21 @@ function isBomb(bomb) {
 function addBonusPoint(points) {
   scoreAt += points;
 }
-
 //Tạo hàng phá
-function createGarbageRow(){
+function createGarbageRow() {
   const garbageRow = [];
   const holeCol = Math.floor(Math.random() * COLS);
-  for(let col = 0; col < COLS; col++){
-    if(col === holeCol){
+  for (let col = 0; col < COLS; col++) {
+    if (col === holeCol) {
       garbageRow.push(0);
-    }else{
+    } else {
       garbageRow.push(GARBAGE_ID);
     }
   }
+  freezeGarCells(garbageRow);
   return garbageRow;
 }
-function hasBlocksInTopRow(){
+function hasBlocksInTopRow() {
   for (let col = 0; col < COLS; col++) {
     if (board[0][col] !== 0) {
       return true;
@@ -917,23 +906,22 @@ function hasBlocksInTopRow(){
   }
   return false;
 }
-function addGarbageRow(){
+function addGarbageRow() {
   if (!isPlaying || currentShape === null) return;
-  if(checkTimeExpired()) return;
+  if (checkTimeExpired()) return;
   if (hasBlocksInTopRow()) {
     endGame(false);
     levelElement.textContent = "GAME OVER — RÁC ĐẨY TRÀN BẢNG";
     return;
   }
   const pushedRow = currentShape.startRow - 1;
-
-  if(pushedRow < 0){
+  if (pushedRow < 0) {
     endGame(false);
     levelElement.textContent = "GAME OVER — KHỐI BỊ ĐẨY QUA ĐỈNH";
     return;
   }
 
-   for (let row = 0; row < ROWS - 1; row++) {
+  for (let row = 0; row < ROWS - 1; row++) {
     for (let col = 0; col < COLS; col++) {
       board[row][col] = board[row + 1][col];
     }
@@ -941,32 +929,74 @@ function addGarbageRow(){
   board[ROWS - 1] = createGarbageRow();
   currentShape.startRow = pushedRow;
 
-  const isValidPosition = canMoveTo(currentShape.startRow, currentShape.startCol, currentShape.shape);
-  if(!isValidPosition){
+  const isValidPosition = canMoveTo(
+    currentShape.startRow,
+    currentShape.startCol,
+    currentShape.shape,
+  );
+  if (!isValidPosition) {
     endGame(false);
     levelElement.textContent = "GAME OVER - KHỐI BỊ CHẶN";
     return;
   }
   renderBoard();
 }
-function updateDifficult(now){
+function updateDifficult(now) {
   const config = getLevelConfig();
   const difficulty = config.difficulty;
-  if(!difficulty) return;
-
+  if (!difficulty) return;
   const elapsedTime = now - gameStartedAt;
 
   const newStage = Math.floor(elapsedTime / difficulty.everyMs);
-  if(newStage === difficultyStage) return;
+  if (newStage === difficultyStage) return;
   difficultyStage = newStage;
-  const newDropDelay = Math.max(difficulty.minDropDelay, config.dropDelay - difficultyStage * difficulty.dropDecreaseMs);
-  if(newDropDelay !== activeDropDelay){
+  const newDropDelay = Math.max(
+    difficulty.minDropDelay,
+    config.dropDelay - difficultyStage * difficulty.dropDecreaseMs,
+  );
+  if (newDropDelay !== activeDropDelay) {
     activeDropDelay = newDropDelay;
     stopAutoDrop();
     startAutoDrop();
   }
-  if(config.garbage){
-    activeGarbageInterval = Math.max(difficulty.minGarbageInterval, config.garbage.intervalMs - difficultyStage * difficulty.garbageDecreaseMs);
+  if (config.garbage) {
+    activeGarbageInterval = Math.max(
+      difficulty.minGarbageInterval,
+      config.garbage.intervalMs -
+        difficultyStage * difficulty.garbageDecreaseMs,
+    );
     nextGarbageAt = Math.min(nextGarbageAt, now + activeGarbageInterval);
   }
+}
+function freezeGarCells(garbageRow) {
+  const config = getLevelConfig();
+  const iceConfig = config.ice;
+  if (!iceConfig) return;
+  const randomValue = Math.random();
+  if (randomValue >= iceConfig.chancePerGarbageRow) return;
+
+  const availableCols = [];
+  for (let col = 0; col < garbageRow.length; col++) {
+    if (garbageRow[col] === GARBAGE_ID) availableCols.push(col);
+  }
+  const maxCells = Math.min(iceConfig.maxCellsPerRow, availableCols.length);
+  if (maxCells <= 0) return;
+  const countFrozen = Math.floor(Math.random() * maxCells) + 1;
+  for (let count = 0; count < countFrozen; count++) {
+    const randomIndex = Math.floor(Math.random() * availableCols.length);
+    const selectedCol = availableCols[randomIndex];
+    garbageRow[selectedCol] = ICE_ID;
+    availableCols.splice(randomIndex, 1);
+  }
+}
+//Phá 1 lớp băng trong một hàng
+function breakIceInRow(row) {
+  let brokenCells = 0;
+  for (let col = 0; col < COLS; col++) {
+    if (board[row][col] === ICE_ID) {
+      board[row][col] = GARBAGE_ID;
+      brokenCells++;
+    }
+  }
+  return brokenCells;
 }
