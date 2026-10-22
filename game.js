@@ -383,7 +383,6 @@ function paintShape() {
     }
   }
 }
-
 // hàm kiểm tra xem hình dạng có thể di chuyển xuống không và có chạm 2 biên
 function canMoveTo(nextRow, nextCol, shape) {
   if (currentShape === null) {
@@ -585,29 +584,29 @@ function clearFullRows() {
         break;
       }
     }
+     if (!isFull) {
+      row--;
+      continue;
+    }
     const brokenIce = breakIceInRow(row);
     if (brokenIce > 0) {
       totalBrokenIce += brokenIce;
       row--;
       continue;
     }
-    if (isFull) {
-      for (let r = row; r > 0; r--) {
-        for (let col = 0; col < COLS; col++) {
-          board[r][col] = board[r - 1][col];
-        }
-      }
+    for (let r = row; r > 0; r--) {
       for (let col = 0; col < COLS; col++) {
-        board[0][col] = 0;
+        board[r][col] = board[r - 1][col];
       }
-      rowsCleared++;
-    } else {
-      row--;
     }
-    if (config.ice && totalBrokenIce > 0) {
-      const bonusPoints = totalBrokenIce * config.ice.breakBonus;
-      addBonusPoint(bonusPoints);
+    for (let col = 0; col < COLS; col++) {
+      board[0][col] = 0;
     }
+    rowsCleared++;
+  }
+  if (config.ice && totalBrokenIce > 0) {
+    const bonusPoints = totalBrokenIce * config.ice.breakBonus;
+    addBonusPoint(bonusPoints);
   }
   return rowsCleared;
 }
@@ -634,7 +633,7 @@ function updateGoalDisply() {
 
     progress.push(`Điểm: ${scoreAt} / ${config.targetScore}`);
   }
-  let des = goals.join(" VÀ ");
+  let des = goals.join(" và ");
   if (config.timeLimit !== null) des += " trước khi hết giờ";
 
   goalText.textContent = des;
@@ -909,25 +908,13 @@ function hasBlocksInTopRow() {
 function addGarbageRow() {
   if (!isPlaying || currentShape === null) return;
   if (checkTimeExpired()) return;
-  if (hasBlocksInTopRow()) {
-    endGame(false);
-    levelElement.textContent = "GAME OVER — RÁC ĐẨY TRÀN BẢNG";
-    return;
-  }
   const pushedRow = currentShape.startRow - 1;
-  if (pushedRow < 0) {
-    endGame(false);
-    levelElement.textContent = "GAME OVER — KHỐI BỊ ĐẨY QUA ĐỈNH";
-    return;
-  }
-
   for (let row = 0; row < ROWS - 1; row++) {
     for (let col = 0; col < COLS; col++) {
       board[row][col] = board[row + 1][col];
     }
   }
   board[ROWS - 1] = createGarbageRow();
-  currentShape.startRow = pushedRow;
 
   const isValidPosition = canMoveTo(
     currentShape.startRow,
@@ -939,6 +926,7 @@ function addGarbageRow() {
     levelElement.textContent = "GAME OVER - KHỐI BỊ CHẶN";
     return;
   }
+  currentShape.startRow = pushedRow;
   renderBoard();
 }
 function updateDifficult(now) {
@@ -989,14 +977,22 @@ function freezeGarCells(garbageRow) {
     availableCols.splice(randomIndex, 1);
   }
 }
-//Phá 1 lớp băng trong một hàng
 function breakIceInRow(row) {
-  let brokenCells = 0;
+  let brokenIce = 0;
+  for (let col = 0; col < COLS; col++) {
+    if (board[row][col] === ICE_ID) {
+      brokenIce++;
+    }
+  }
+  if (brokenIce === 0) {
+    return 0;
+  }
   for (let col = 0; col < COLS; col++) {
     if (board[row][col] === ICE_ID) {
       board[row][col] = GARBAGE_ID;
-      brokenCells++;
+    } else {
+      board[row][col] = 0;
     }
   }
-  return brokenCells;
+  return brokenIce;
 }
